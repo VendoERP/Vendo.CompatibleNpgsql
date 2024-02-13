@@ -34,7 +34,7 @@ readonly struct PgArrayConverter
     {
         _elemTypeId = elemTypeId;
         ElemTypeDbNullable = elemTypeDbNullable;
-        _pgLowerBound = pgLowerBound;
+        _pgLowerBound = ((pgLowerBound >= 0) ? pgLowerBound : ((!NpgsqlGlobalCompatibilityConfig.ArrayStartsFromZero) ? 1 : 0));
         _elemOps = elemOps;
         _expectedDimensions = expectedDimensions;
         _bufferRequirements = bufferRequirements;
@@ -118,8 +118,14 @@ readonly struct PgArrayConverter
             var data = ArrayPool<(Size, object?)>.Shared.Rent(count);
             elemsSize = GetElemsSize(values, data, out var elemStateDisposable, context.Format, count, indices, lengths);
             writeState = new WriteState
-                { Count = count, Indices = indices, Lengths = lengths,
-                    ArrayPool = arrayPool,  Data = new(data, 0, count), AnyWriteState = elemStateDisposable };
+            {
+                Count = count,
+                Indices = indices,
+                Lengths = lengths,
+                ArrayPool = arrayPool,
+                Data = new(data, 0, count),
+                AnyWriteState = elemStateDisposable
+            };
         }
 
         return formatSize.Combine(elemsSize);
@@ -147,7 +153,7 @@ readonly struct PgArrayConverter
                 + $"collection type with {_expectedDimensions} dimension{(_expectedDimensions == 1 ? "" : "s")}. "
                 + $"Call GetValue or a version of GetFieldValue<TElement[,,,]> with the commas being the expected amount of dimensions.");
 
-        if (containsNulls && !ElemTypeDbNullable)
+        if (containsNulls && !ElemTypeDbNullable && !NpgsqlGlobalCompatibilityConfig.AllowNullInNonNullArray)
             ThrowHelper.ThrowInvalidCastException(ReadNonNullableCollectionWithNullsExceptionMessage);
 
         // Make sure we can read length + lower bound N dimension times.
@@ -155,13 +161,21 @@ readonly struct PgArrayConverter
             await reader.Buffer(async, (sizeof(int) + sizeof(int)) * dimensions, cancellationToken).ConfigureAwait(false);
 
         var dimLengths = new int[_expectedDimensions ?? dimensions];
+        var indices = new int[dimLengths.Length];
         var lastDimLength = 0;
         for (var i = 0; i < dimensions; i++)
         {
             lastDimLength = reader.ReadInt32();
-            reader.ReadInt32(); // Lower bound
+            var lowerBound = reader.ReadInt32();
             if (dimLengths.Length is 0)
                 break;
+
+            if (NpgsqlGlobalCompatibilityConfig.ArrayStartsFromZero)
+            {
+                lastDimLength += lowerBound;
+                indices[i] = lowerBound;
+            }
+
             dimLengths[i] = lastDimLength;
         }
 
@@ -171,15 +185,6 @@ readonly struct PgArrayConverter
         if (dimensions is 0 || lastDimLength is 0)
             return collection;
 
-        int[] indices;
-        // Reuse array for dim <= 1
-        if (dimensions == 1)
-        {
-            dimLengths[0] = 0;
-            indices = dimLengths;
-        }
-        else
-            indices = new int[dimensions];
         do
         {
             if (reader.ShouldBuffer(sizeof(int)))

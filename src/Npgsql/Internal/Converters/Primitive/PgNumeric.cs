@@ -339,10 +339,20 @@ readonly struct PgNumeric
 
             var digitCount = digits.Length;
             if (digitCount > MaxDecimalNumericDigits)
+            {
+                if (NpgsqlGlobalCompatibilityConfig.FallbackDecimalOverflow)
+                    return ToDecimalFallback(scale, weight, sign, digits);
+
                 throw new OverflowException("Numeric value does not fit in a System.Decimal");
+            }
 
             if (Math.Abs(scale) > MaxDecimalScale)
+            {
+                if (NpgsqlGlobalCompatibilityConfig.FallbackDecimalScaleOverflow)
+                    return ToDecimalFallback(scale, weight, sign, digits);
+
                 throw new OverflowException("Numeric value does not fit in a System.Decimal");
+            }
 
             var scaleFactor = new decimal(1, 0, 0, false, (byte)(scale > 0 ? scale : 0));
             if (digitCount == 0)
@@ -392,6 +402,53 @@ readonly struct PgNumeric
 
             result *= scaleFactor;
             return sign == SignNegative ? -result : result;
+        }
+        static decimal ToDecimalFallback(short scale, short weight, ushort sign, Span<short> digits)
+        {
+            const int MaxUIntScale = 9;
+
+            var digitCount = digits.Length;
+            var numericBase = (double)NumericBase;
+            var result = 0d;
+
+            for (var i = 0; i < digitCount; i++)
+            {
+                result *= numericBase;
+                result += digits[i];
+            }
+
+            var digitScale = (weight + 1 - digitCount) * NumericBaseLog10;
+            var scaleDifference = scale < 0 ? digitScale : digitScale + scale;
+
+            if (scaleDifference < 0)
+                result /= UIntPowers10[-scaleDifference];
+            else
+                while (scaleDifference > 0)
+                {
+                    var scaleChunk = Math.Min(MaxUIntScale, scaleDifference);
+                    result *= UIntPowers10[scaleChunk];
+                    scaleDifference -= scaleChunk;
+                }
+
+            scaleDifference = scale;
+
+            while (scaleDifference > 0)
+            {
+                var scaleChunk = Math.Min(MaxUIntScale, scaleDifference);
+                result /= UIntPowers10[scaleChunk];
+                scaleDifference -= scaleChunk;
+            }
+
+            if (sign == SignNegative)
+                result = -result;
+
+            if (result > (double)decimal.MaxValue)
+                return decimal.MaxValue;
+
+            if (result < (double)decimal.MinValue)
+                return decimal.MinValue;
+
+            return (decimal)result;
         }
 
         internal static BigInteger ToBigInteger(short weight, ushort sign, Span<short> digits)

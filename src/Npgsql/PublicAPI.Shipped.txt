@@ -620,6 +620,7 @@ Npgsql.NpgsqlException.NpgsqlException(string? message, System.Exception? innerE
 Npgsql.NpgsqlException.NpgsqlException(System.Runtime.Serialization.SerializationInfo! info, System.Runtime.Serialization.StreamingContext context) -> void
 Npgsql.NpgsqlFactory
 Npgsql.NpgsqlFactory.GetService(System.Type! serviceType) -> object?
+Npgsql.NpgsqlGlobalCompatibilityConfig
 Npgsql.NpgsqlLargeObjectManager
 Npgsql.NpgsqlLargeObjectManager.Create(uint preferredOid = 0) -> uint
 Npgsql.NpgsqlLargeObjectManager.CreateAsync(uint preferredOid, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<uint>!
@@ -1932,6 +1933,14 @@ static NpgsqlTypes.NpgsqlTsVector.Lexeme.WordEntryPos.operator !=(NpgsqlTypes.Np
 static NpgsqlTypes.NpgsqlTsVector.Lexeme.WordEntryPos.operator ==(NpgsqlTypes.NpgsqlTsVector.Lexeme.WordEntryPos left, NpgsqlTypes.NpgsqlTsVector.Lexeme.WordEntryPos right) -> bool
 static NpgsqlTypes.NpgsqlTsVector.Parse(string! value) -> NpgsqlTypes.NpgsqlTsVector!
 static readonly Npgsql.NpgsqlFactory.Instance -> Npgsql.NpgsqlFactory!
+static Npgsql.NpgsqlGlobalCompatibilityConfig.ArrayStartsFromZero.get -> bool
+static Npgsql.NpgsqlGlobalCompatibilityConfig.ArrayStartsFromZero.set -> void
+static Npgsql.NpgsqlGlobalCompatibilityConfig.AllowNullInNonNullArray.get -> bool
+static Npgsql.NpgsqlGlobalCompatibilityConfig.AllowNullInNonNullArray.set -> void
+static Npgsql.NpgsqlGlobalCompatibilityConfig.FallbackDecimalOverflow.get -> bool
+static Npgsql.NpgsqlGlobalCompatibilityConfig.FallbackDecimalOverflow.set -> void
+static Npgsql.NpgsqlGlobalCompatibilityConfig.FallbackDecimalScaleOverflow.get -> bool
+static Npgsql.NpgsqlGlobalCompatibilityConfig.FallbackDecimalScaleOverflow.set -> void
 static readonly NpgsqlTypes.NpgsqlLogSequenceNumber.Invalid -> NpgsqlTypes.NpgsqlLogSequenceNumber
 static readonly NpgsqlTypes.NpgsqlRange<T>.Empty -> NpgsqlTypes.NpgsqlRange<T>
 virtual Npgsql.NpgsqlCommand.Clone() -> Npgsql.NpgsqlCommand!
